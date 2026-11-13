@@ -2,20 +2,20 @@
 
 ## [Unreleased]
 
-- Added automated extension validation and browser smoke tests.
-- Added release checks, a security policy, and maintenance documentation.
-- Raised the smallest sponsored-result and popup text to the accessibility floor without changing the layout.
+## [1.0.0] — 2026-11-12
 
-
-## 1.0.0 — Initial public release
-
-Public release of the v1.7-tested layout under the name **Qwant Fair Ads**.
-
-- Compact red sponsored links and advertiser domains.
-- One grouped header for consecutive ads, with expand/collapse support.
-- Compact, Minimal and Collapsed settings.
+### Added
+- Compact red sponsored links with advertiser domains and one grouped header for consecutive ads.
+- Expand/collapse and Compact, Minimal, and Collapsed display modes.
 - Ad-click confirmation showing advertiser and redirect hostname.
-- Restored normal result layout for organic results.
-- Corrected ad grouping and removed excessive vertical whitespace in earlier prototypes.
+- Privacy documentation, security reporting, project conventions, and automated validation.
 
-Known limitation: the browser context menu and some browser-initiated navigations can bypass the warning. Qwant markup changes may require updates.
+### Fixed
+- Excessive ad whitespace and duplicated sponsored-results headers.
+- Advertiser domains being shown as Bing redirect domains.
+- Minimum text sizing for the sponsored group and extension popup.
+
+### Limitations
+- Browser context-menu navigation may bypass the warning.
+- Qwant markup changes may require detection updates.
+- Release packaging and accessibility changes remain untested on real hardware.
