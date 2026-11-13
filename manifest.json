@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Qwant Fair Ads",
+  "version": "1.0.0",
+  "description": "Compact, clearly labeled sponsored results on Qwant with a confirmation before opening ad links.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://qwant.com/*",
+        "*://*.qwant.com/*"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Qwant Fair Ads settings",
+    "default_popup": "popup.html"
+  }
+}
