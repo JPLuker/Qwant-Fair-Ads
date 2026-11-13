@@ -40,6 +40,25 @@ No search queries, browsing history, or personal information are collected or se
 - Some ad redirects conceal their final destination.
 - Chromium browsers are the intended platform.
 
+## Network connections
+
+The extension makes no independent network requests. It reads the Qwant page that's already open and only follows a sponsored link after you choose Continue.
+
+| Host | When | What's sent |
+|---|---|---|
+| None | No extension-initiated requests | Nothing |
+| Sponsored link destination (varies) | Only when you choose Continue | A normal browser navigation, subject to the destination's own policies |
+
+No telemetry. No account required. Nothing is sold or shared.
+
+## Support
+
+Issues are monitored. Report bugs or request features through [GitHub Issues](https://github.com/JPLuker/Qwant-Fair-Ads/issues/new/choose). Report security issues privately, as described in [SECURITY.md](SECURITY.md).
+
+## Testing and releases
+
+[TESTING.md](TESTING.md) explains the automated checks and limitations. Browser-extension builds without a real-device test are marked **UNTESTED** and published separately from tested releases.
+
 ## Development
 
 Plain JavaScript, CSS, Manifest V3, and no external dependencies. Load the directory unpacked to test.
