@@ -14,9 +14,14 @@ A lightweight, independent Chromium extension that makes sponsored results on [Q
 - Leaves organic search results alone.
 - Saves your chosen display mode locally, without analytics or tracking.
 
+## Download
+
+**Stable release:** [Qwant Fair Ads v1.0.0](https://github.com/JPLuker/Qwant-Fair-Ads/releases/tag/v1.0.0). The release includes the extension ZIP and a SHA-256 checksum file.
+
 ## Install
 
-1. Download or clone this repository.
+
+1. Download and extract the stable release ZIP (or clone this repository).
 2. Open `vivaldi://extensions`, `chrome://extensions`, or `brave://extensions`.
 3. Enable **Developer mode** and choose **Load unpacked**.
 4. Select the directory containing `manifest.json`.
@@ -57,7 +62,7 @@ Issues are monitored. Report bugs or request features through [GitHub Issues](ht
 
 ## Testing and releases
 
-[TESTING.md](TESTING.md) explains the automated checks and limitations. Browser-extension builds without a real-device test are marked **UNTESTED** and published separately from tested releases.
+[TESTING.md](TESTING.md) explains the automated checks and limits of live-browser acceptance. The approved v1.0.0 ZIP was promoted byte-for-byte from its CI-verified pre-release; that earlier pre-release remains available separately.
 
 ## Development
 
