@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qwant Fair Ads</title>
+<style>
+:root { color-scheme: dark; }
+body { background:#23272e; color:#f2f3f6; font:13px/1.45 system-ui,sans-serif; width:270px; padding:14px; margin:0; }
+h1 { margin:0 0 6px; font-size:16px; }
+p { color:#c5cad3; margin:0 0 12px; }
+label { display:flex; align-items:flex-start; gap:10px; cursor:pointer; padding:9px 6px; border-radius:7px; }
+label:hover { background:#363d47; }
+input { margin-top:4px; accent-color:#ed4848; }
+strong { display:block; font-size:13px; }
+small { display:block; color:#bbc3cf; font-size:11px; }
+footer { border-top:1px solid #46505e; padding-top:10px; margin-top:9px; color:#b3bdcb; font-size:11px; }
+</style>
+</head>
+<body>
+<h1>Qwant Fair Ads</h1>
+<p>Choose how ads appear on Qwant.</p>
+<form id="options">
+<label><input type="radio" name="mode" value="compact"><span><strong>Compact</strong><small>Two lines per ad; expandable header.</small></span></label>
+<label><input type="radio" name="mode" value="minimal"><span><strong>Minimal</strong><small>One line per ad; tightest visible layout.</small></span></label>
+<label><input type="radio" name="mode" value="collapsed"><span><strong>Collapsed</strong><small>Show only the sponsored-results header.</small></span></label>
+</form>
+<footer>Ad-click confirmation stays on in every mode. Changes apply without a reload.</footer>
+<script src="popup.js"></script>
+</body>
+</html>
