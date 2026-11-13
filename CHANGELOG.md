@@ -18,4 +18,4 @@
 ### Limitations
 - Browser context-menu navigation may bypass the warning.
 - Qwant markup changes may require detection updates.
-- Release packaging and accessibility changes remain untested on real hardware.
+- On-device screenshots verified the sponsored grouping and click-warning modal, but did not demonstrate every display mode or identify the exact installed package version.
