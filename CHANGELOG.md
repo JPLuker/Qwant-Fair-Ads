@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- Added automated extension validation and browser smoke tests.
+- Added release checks, a security policy, and maintenance documentation.
+- Raised the smallest sponsored-result and popup text to the accessibility floor without changing the layout.
+
+
 ## 1.0.0 — Initial public release
 
 Public release of the v1.7-tested layout under the name **Qwant Fair Ads**.
