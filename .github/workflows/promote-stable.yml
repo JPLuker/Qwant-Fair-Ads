@@ -1,0 +1,144 @@
+name: Promote accepted Chromium release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/promote-stable.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote byte-identical checked release asset
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify candidate and source files
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import json; print(json.load(open("manifest.json"))["version"])')
+          test "$version" = "1.0.0" || { echo "Unexpected version: $version"; exit 1; }
+          candidate="v$version-untested-chromium"
+          stable="v$version"
+          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
+          echo "stable=$stable" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          test "$(gh release view "$candidate" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = true
+          git fetch origin "refs/tags/$candidate:refs/tags/$candidate"
+          for file in manifest.json content.js content.css popup.html popup.js; do
+            git diff --quiet "$candidate" HEAD -- "$file" || { echo "Code drift: $file"; exit 1; }
+          done
+          if gh release view "$stable" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Existing stable release; leaving it unchanged"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch and validate approved ZIP without rebuilding
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          CANDIDATE: ${{ steps.version.outputs.candidate }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir candidate stable
+          original="Qwant-Fair-Ads-$VERSION-Chromium-UNTESTED.zip"
+          promoted="Qwant-Fair-Ads-$VERSION-Chromium.zip"
+          gh release download "$CANDIDATE" --repo "$GITHUB_REPOSITORY" --dir candidate --pattern "$original" --pattern SHA256SUMS.txt
+          (cd candidate && test -s "$original" && sha256sum -c SHA256SUMS.txt)
+          cp "candidate/$original" "stable/$promoted"
+          cmp "candidate/$original" "stable/$promoted"
+          (cd stable && sha256sum "$promoted" > SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+          python3 - "$VERSION" "stable/$promoted" <<'PY'
+          import json, sys, zipfile
+          version, archive = sys.argv[1:]
+          with zipfile.ZipFile(archive) as z:
+              names = ("manifest.json", "content.js", "content.css", "popup.html", "popup.js")
+              assert all(x in z.namelist() and z.getinfo(x).file_size > 0 for x in names)
+              assert z.testzip() is None
+              manifest = json.loads(z.read("manifest.json"))
+              assert manifest["version"] == version and manifest["name"] == "Qwant Fair Ads"
+          print("PASS: original archive checked; stable asset byte-identical")
+          PY
+
+      - name: Tag same commit as candidate
+        if: steps.version.outputs.publish == 'true'
+        env:
+          CANDIDATE: ${{ steps.version.outputs.candidate }}
+          STABLE: ${{ steps.version.outputs.stable }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha=$(git rev-parse "$CANDIDATE^{commit}")
+          if git ls-remote --exit-code --tags origin "refs/tags/$STABLE" >/dev/null 2>&1; then
+            echo "Stable tag already exists; refuse to rewrite" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$STABLE" "$source_sha"
+          git push origin "refs/tags/$STABLE"
+          remote=$(git ls-remote origin "refs/tags/$STABLE" | awk 'NR==1 {print $1}')
+          test "$remote" = "$source_sha"
+
+      - name: Publish stable release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STABLE: ${{ steps.version.outputs.stable }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/release-notes.md <<EOF
+          Qwant Fair Ads makes sponsored results smaller, marks their titles in red, and asks before opening them.
+
+          - Groups consecutive sponsored results.
+          - Shows advertiser domains and leaves ordinary results unchanged.
+          - Supports Compact, Minimal, and Collapsed modes.
+          - Confirms ad clicks with a redirect warning.
+
+          **Acceptance:** The user approved this stable release after checking live Qwant screenshots in Vivaldi on November 13, 2026. The ZIP is byte-identical to the original CI-verified pre-release. The screenshots confirm the layout and modal, but do not independently identify the installed package version or demonstrate every display mode.
+
+          **Limitations:** Context-menu navigation can bypass the warning. Redirect URLs can hide their final target. This extension does not block ads or scan sites for malware.
+
+          **Install:** Extract the ZIP, open the browser's extensions page, enable Developer mode, and select Load unpacked. Choose the folder with manifest.json. Updates are manual.
+
+          ## Downloads
+          **Chromium:** Qwant-Fair-Ads-$VERSION-Chromium.zip and SHA256SUMS.txt.
+          EOF
+          gh release create "$STABLE" "stable/Qwant-Fair-Ads-$VERSION-Chromium.zip" stable/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --verify-tag --latest --title "Qwant Fair Ads v$VERSION" --notes-file /tmp/release-notes.md
+
+      - name: Verify published assets, SHA and stable flag
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STABLE: ${{ steps.version.outputs.stable }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir published
+          asset="Qwant-Fair-Ads-$VERSION-Chromium.zip"
+          gh release download "$STABLE" --repo "$GITHUB_REPOSITORY" --dir published --pattern "$asset" --pattern SHA256SUMS.txt
+          cmp "stable/$asset" "published/$asset"
+          (cd published && test -s "$asset" && test -s SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
+          test "$(gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = false
+          test "$(gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" --json isLatest --jq .isLatest)" = true
+          echo "PASS: stable release, same ZIP, verified assets and latest flag"
