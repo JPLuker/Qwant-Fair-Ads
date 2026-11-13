@@ -248,3 +248,128 @@
       }
     }
     return false;
+  }
+
+  function buildRuns(ads) {
+    const runs = [];
+    let previous = null;
+    for (const item of ads) {
+      if (!previous || organicBetween(previous.root, item.root)) runs.push([]);
+      runs[runs.length - 1].push(item);
+      previous = item;
+    }
+    return runs;
+  }
+
+  function textEl(tag, className, content) {
+    const el = document.createElement(tag);
+    el.className = className;
+    el.textContent = content;
+    return el;
+  }
+
+  function isLightBackground(el) {
+    // Qwant's selected theme can differ from the OS preference, so derive
+    // contrast from the page itself rather than prefers-color-scheme.
+    for (let node = el?.parentElement; node; node = node.parentElement) {
+      const value = getComputedStyle(node).backgroundColor;
+      const match = value.match(/^rgba?\(([^)]+)\)$/i);
+      if (!match) continue;
+      const parts = match[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+      if (parts.length < 3 || parts.some((p,i) => i < 3 && !Number.isFinite(p))) continue;
+      if (parts.length > 3 && parts[3] < 0.2) continue;
+      const [r,g,b] = parts;
+      // Luminance proxy; sufficient for contrast selection.
+      return (r * 299 + g * 587 + b * 114) / 1000 > 155;
+    }
+    return false;
+  }
+
+  function showGroup(run) {
+    if (!run[0]?.root.isConnected || !run[0].root.parentElement) return;
+    const group = document.createElement('section');
+    group.className = 'qcr-group';
+    if (isLightBackground(run[0].root)) group.classList.add('qcr-light');
+    group.dataset.qcrMode = mode;
+    group.setAttribute('aria-label', 'Sponsored search results');
+    const listId = `qcr-list-${++nextGroupId}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'qcr-toggle';
+    button.setAttribute('aria-controls', listId);
+    const label = textEl('span', 'qcr-toggle-text', 'Sponsored results');
+    label.append(textEl('span', 'qcr-count', `(${run.length})`));
+    const chevron = textEl('span', 'qcr-chevron', '▾');
+    button.append(label, chevron);
+    const list = document.createElement('div');
+    list.id = listId;
+    list.className = 'qcr-list';
+
+    let collapsed = rememberedCollapse.has(run[0].root)
+      ? rememberedCollapse.get(run[0].root)
+      : mode === 'collapsed';
+    const setCollapsed = (next) => {
+      collapsed = Boolean(next);
+      list.hidden = collapsed;
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('aria-label', `${collapsed ? 'Show' : 'Hide'} ${run.length} sponsored result${run.length === 1 ? '' : 's'}`);
+      chevron.textContent = collapsed ? '▸' : '▾';
+      rememberedCollapse.set(run[0].root, collapsed);
+    };
+    button.addEventListener('click', () => setCollapsed(!collapsed));
+
+    for (const item of run) {
+      const ad = document.createElement('div');
+      ad.className = 'qcr-ad';
+      const domain = textEl('div', 'qcr-domain', item.domain);
+      domain.append(textEl('span', 'qcr-ad-badge', '· Ad'));
+      const link = textEl('a', 'qcr-ad-link', item.title);
+      link.href = item.url.href;
+      link.dataset.qcrAdLink = '1';
+      link.dataset.qcrAdvertiser = item.domain;
+      link.title = `${item.title} — sponsored by ${item.domain}`;
+      ad.append(domain, link);
+      list.append(ad);
+    }
+    group.append(button, list);
+    run[0].root.before(group);
+    rendered.add(group);
+    groupOrigins.set(group, run[0].root);
+    setCollapsed(collapsed);
+  }
+
+  function unhideOriginals() {
+    for (const [root, old] of records) {
+      if (root.isConnected) {
+        if (old.display) root.style.setProperty('display', old.display, old.priority);
+        else root.style.removeProperty('display');
+        root.removeAttribute('data-qcr-original');
+      }
+    }
+    records.clear();
+    for (const group of rendered) group.remove();
+    rendered.clear();
+  }
+
+  function render(ads) {
+    unhideOriginals();
+    // Mark originals as hidden only after enough information was extracted.
+    for (const item of ads) {
+      const root = item.root;
+      if (!root.isConnected) continue;
+      records.set(root, {
+        display: root.style.getPropertyValue('display'),
+        priority: root.style.getPropertyPriority('display')
+      });
+      root.dataset.qcrOriginal = '1';
+      root.style.setProperty('display', 'none', 'important');
+    }
+    for (const run of buildRuns(ads)) showGroup(run);
+  }
+
+  function applyMode(nextMode) {
+    if (!MODES.has(nextMode)) return;
+    if (mode === nextMode) return;
+    mode = nextMode;
+    for (const group of rendered) {
+      group.dataset.qcrMode = mode;
