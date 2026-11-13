@@ -55,7 +55,13 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $tag already exists. Keeping its assets unchanged."
+            echo "Release $tag already exists; checking no extension code changed without a version bump."
+            for file in manifest.json content.js content.css popup.html popup.js; do
+              if ! cmp -s <(git show "$tag:$file") "$file"; then
+                echo "Extension code changed without a new manifest version: $file" >&2
+                exit 1
+              fi
+            done
             echo 'publish=false' >> "$GITHUB_OUTPUT"
           else
             echo 'publish=true' >> "$GITHUB_OUTPUT"
