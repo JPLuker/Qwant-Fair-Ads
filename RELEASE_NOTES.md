@@ -1,11 +1,15 @@
-# Qwant Fair Ads 1.0.0
+# Qwant Fair Ads v1.0.0
 
-Initial public release based on the tested v1.7 extension.
+- Condensed consecutive Qwant sponsored results into one compact section.
+- Kept small red titles, advertiser domains, and an Ad label.
+- Added Compact, Minimal and Collapsed layouts.
+- Kept click confirmation with Escape-to-cancel and a redirect-domain notice.
+- Kept organic results separate.
 
-Features: compact, red sponsored results; grouped/collapsible ads; appearance preferences; and confirmation before following sponsored links.
+**Testing:** The previous v1.7 layout was confirmed in Vivaldi. The renamed v1.0.0 package and accessibility adjustments passed simulated Chromium tests but have not been installed on real hardware.
 
-**Known limitations:** This is not a malware scanner, and right-click browser navigation may bypass the warning. Qwant layout changes can affect detection.
+**Limitations:** Browser context-menu actions can bypass confirmation. Qwant may change its page structure.
 
-### Installation
+## Downloads
 
-Download the repository archive using **Code → Download ZIP**, extract it, and load the directory containing `manifest.json` through your Chromium browser's extensions page with Developer mode enabled.
+**Chromium:** Install the ZIP as an unpacked extension through the browser's extension manager. Browser-level automatic updates are not included.
