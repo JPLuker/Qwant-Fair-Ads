@@ -131,5 +131,27 @@ jobs:
           cmp "stable/$asset" "published/$asset"
           (cd published && test -s "$asset" && test -s SHA256SUMS.txt && sha256sum -c SHA256SUMS.txt)
           test "$(gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = false
-          test "$(gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" --json isLatest --jq .isLatest)" = true
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$STABLE"
           echo "PASS: stable release, same ZIP, verified assets and latest flag"
+
+      - name: Verify previously published stable release
+        if: steps.version.outputs.publish == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STABLE: ${{ steps.version.outputs.stable }}
+          CANDIDATE: ${{ steps.version.outputs.candidate }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verified/stable verified/untested
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$STABLE"
+          test "$(gh release view "$STABLE" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)" = false
+          release_asset="Qwant-Fair-Ads-$VERSION-Chromium.zip"
+          candidate_asset="Qwant-Fair-Ads-$VERSION-Chromium-UNTESTED.zip"
+          gh release download "$STABLE" --repo "$GITHUB_REPOSITORY" --dir verified/stable --pattern "$release_asset" --pattern SHA256SUMS.txt
+          gh release download "$CANDIDATE" --repo "$GITHUB_REPOSITORY" --dir verified/untested --pattern "$candidate_asset" --pattern SHA256SUMS.txt
+          (cd verified/stable && sha256sum -c SHA256SUMS.txt)
+          (cd verified/untested && sha256sum -c SHA256SUMS.txt)
+          cmp "verified/stable/$release_asset" "verified/untested/$candidate_asset"
+          echo "PASS: existing stable release remains latest and byte-identical to tested candidate"
