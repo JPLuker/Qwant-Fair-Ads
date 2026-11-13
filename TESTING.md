@@ -18,6 +18,6 @@ GitHub Actions runs these checks before it creates a release.
 
 ## Human acceptance
 
-The predecessor v1.7 grouping and click-confirmation behavior was accepted in Vivaldi on November 12, 2026. The renamed v1.0.0 package and accessibility adjustments have **not** been confirmed on real hardware. Keep that artifact out of a tested release until someone checks this exact version.
+The predecessor v1.7 grouping and click confirmation were accepted in Vivaldi on November 12, 2026. On November 13, 2026, the user supplied live Qwant screenshots showing a grouped sponsored section, compact red titles, correct advertiser domains, untouched organic results, and the redirect confirmation. The user then explicitly approved v1.0.0 for stable publication.
 
-Suggested acceptance: install the release ZIP unpacked; search Qwant for a term with sponsored results; confirm one header, compact red titles, organic results unchanged, Escape cancellation, popup modes, and refresh behavior.
+The v1.0.0 stable ZIP has the same SHA-256 bytes as the previously packaged CI-verified pre-release. The provided screenshots do not show the installed extension's version, and they do not demonstrate every display mode, Escape behavior, or a light-theme page. Those latter behaviors passed simulated Chromium tests. This is scoped acceptance, not proof that every feature has been tested on a live website.
