@@ -373,3 +373,150 @@
     mode = nextMode;
     for (const group of rendered) {
       group.dataset.qcrMode = mode;
+      const button = group.querySelector('.qcr-toggle');
+      const list = group.querySelector('.qcr-list');
+      const collapsed = mode === 'collapsed';
+      list.hidden = collapsed;
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('aria-label', `${collapsed ? 'Show' : 'Hide'} sponsored results`);
+      group.querySelector('.qcr-chevron').textContent = collapsed ? '▸' : '▾';
+      const firstOriginal = groupOrigins.get(group);
+      if (firstOriginal) rememberedCollapse.set(firstOriginal, collapsed);
+    }
+  }
+
+  function scan() {
+    pendingScan = false;
+    const ads = findAds();
+    const keys = [...records.keys()];
+    const unchanged = ads.length === keys.length && ads.every((item, i) =>
+      item.root === keys[i] &&
+      item.title === keys[i]?.dataset.qcrTitle &&
+      item.domain === keys[i]?.dataset.qcrDomain &&
+      item.url.href === keys[i]?.dataset.qcrUrl);
+    if (unchanged) return;
+    render(ads);
+    for (const item of ads) {
+      item.root.dataset.qcrTitle = item.title;
+      item.root.dataset.qcrDomain = item.domain;
+      item.root.dataset.qcrUrl = item.url.href;
+    }
+  }
+
+  function scheduleScan() {
+    if (pendingScan) return;
+    pendingScan = true;
+    requestAnimationFrame(scan);
+  }
+
+  function confirmNavigation(url, advertiser, newTab) {
+    if (modalOpen) return;
+    modalOpen = true;
+    const previousFocus = document.activeElement;
+    const overlay = document.createElement('div');
+    overlay.className = 'qcr-modal-backdrop';
+    const dialog = document.createElement('div');
+    dialog.className = 'qcr-modal';
+    dialog.setAttribute('role', 'alertdialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-labelledby', 'qcr-confirm-title');
+    const title = textEl('h2', 'qcr-modal-title', 'You’re opening a sponsored result');
+    title.id = 'qcr-confirm-title';
+    const ad = textEl('p', 'qcr-modal-line', `Advertiser: ${advertiser}`);
+    const redirected = advertiser !== 'Sponsored advertiser' &&
+      advertiser !== url.hostname.replace(/^www\./, '');
+    const target = textEl('p', 'qcr-modal-line',
+      `${redirected ? 'Link goes through' : 'Link domain'}: ${url.hostname}`);
+    const note = textEl('p', 'qcr-modal-note', redirected
+      ? 'This is a tracking or redirect link. Its final destination cannot be verified from Qwant’s link. Continuing does not mean the website is safe.'
+      : 'Confirming does not verify that this website is safe.');
+    const actions = document.createElement('div');
+    actions.className = 'qcr-modal-actions';
+    const cancel = textEl('button', 'qcr-modal-button', 'Cancel');
+    const proceed = textEl('button', 'qcr-modal-button qcr-proceed', 'Continue');
+    cancel.type = proceed.type = 'button';
+    const close = () => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      modalOpen = false;
+      if (previousFocus?.isConnected && previousFocus.focus) previousFocus.focus();
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        close();
+      } else if (event.key === 'Tab') {
+        const focusables = [cancel, proceed];
+        const first = focusables[0], last = focusables[1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    };
+    cancel.addEventListener('click', close);
+    proceed.addEventListener('click', () => {
+      close();
+      if (newTab) window.open(url.href, '_blank', 'noopener,noreferrer');
+      else location.assign(url.href);
+    });
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+    actions.append(cancel, proceed);
+    dialog.append(title, ad, target, note, actions);
+    overlay.append(dialog);
+    document.body.append(overlay);
+    document.addEventListener('keydown', onKey, true);
+    cancel.focus();
+  }
+
+  function intercept(event) {
+    if (event.type === 'click' && event.button !== 0) return;
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    const origin = event.target instanceof Element ? event.target : event.target?.parentElement;
+    const anchor = origin?.closest('a[href]');
+    if (!anchor || !(anchor.matches('[data-qcr-ad-link]') || anchor.closest('[data-qcr-original]'))) return;
+    const url = safeURL(anchor);
+    if (!url) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const advertiser = anchor.dataset.qcrAdvertiser || url.hostname;
+    confirmNavigation(url, advertiser,
+      event.type === 'auxclick' || event.ctrlKey || event.metaKey || event.shiftKey || anchor.target === '_blank');
+  }
+
+  document.addEventListener('click', intercept, true);
+  document.addEventListener('auxclick', intercept, true);
+  // Some Chromium configurations start middle-click navigation on mousedown.
+  document.addEventListener('mousedown', (event) => {
+    if (event.button !== 1) return;
+    const origin = event.target instanceof Element ? event.target : event.target?.parentElement;
+    if (origin?.closest('a[data-qcr-ad-link]')) event.preventDefault();
+  }, true);
+
+  const observer = new MutationObserver((changes) => {
+    const external = changes.some(change => {
+      if (change.type === 'characterData') {
+        const parent = change.target.parentElement;
+        return parent && !isOwn(parent);
+      }
+      return [...change.addedNodes, ...change.removedNodes].some(node => {
+        if (!(node instanceof Element)) return false;
+        return !node.matches('.qcr-group,.qcr-modal-backdrop') && !isOwn(node);
+      });
+    });
+    if (external) scheduleScan();
+  });
+  observer.observe(document.documentElement, { childList: true, characterData: true, subtree: true });
+  scheduleScan();
+
+  if (globalThis.chrome?.storage?.local) {
+    chrome.storage.local.get({ mode: 'compact' }, result => applyMode(result.mode));
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.mode) applyMode(changes.mode.newValue);
+    });
+  }
+})();
