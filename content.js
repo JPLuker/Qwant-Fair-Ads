@@ -123,3 +123,128 @@
     let shell = root;
     for (let depth = 0; depth < 7; depth++) {
       const parent = shell.parentElement;
+      if (!parent || parent.matches('main,[role="main"],body,html,nav,header,footer,aside')) break;
+      if (isOwn(parent) || countLabels(parent) !== 1) break;
+      const shellText = cleanText(shell.textContent);
+      const parentText = cleanText(parent.textContent);
+      // Wrapper-only parents have virtually identical text. A sibling organic
+      // result or another independent widget disqualifies the parent.
+      if (parentText.length > shellText.length + 55 || parentText.length > 2600) break;
+      if (parent.querySelectorAll('h2,[role="heading"][aria-level="2"]').length > 1) break;
+      shell = parent;
+    }
+    return shell;
+  }
+
+  function advertiserDomain(root, url) {
+    // Ad click URLs commonly point to Bing/Qwant tracking endpoints. Extract
+    // the *displayed* advertiser from text nodes, NOT from the link hostname.
+    // Reading individual text nodes works when CSS moves the domain visually
+    // above the title but its source order comes after it.
+    const matches = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let node, visits = 0;
+    while ((node = walker.nextNode()) && ++visits <= 180) {
+      const value = cleanText(node.nodeValue);
+      if (!value || value.length > 280) continue;
+      const match = value.match(DOMAIN);
+      if (match) matches.push(match[1].toLowerCase().replace(/^www\./, ''));
+    }
+    // If a domain has been separated into multiple markup nodes, innerText
+    // is a fallback. Unlike v1.6, do not stop at the headline/title line.
+    if (!matches.length) {
+      for (const line of (root.innerText || '').split(/\n+/).slice(0, 25)) {
+        const match = cleanText(line).match(DOMAIN);
+        if (match) matches.push(match[1].toLowerCase().replace(/^www\./, ''));
+      }
+    }
+    const displayed = matches.find(d => d !== 'qwant.com' && d !== 'bing.com');
+    if (displayed) return displayed;
+    if (matches.length) return matches[0];
+    if (!/(?:^|\.)(?:bing|qwant)\.com$/i.test(url.hostname)) {
+      return url.hostname.replace(/^www\./, '');
+    }
+    return 'Sponsored advertiser';
+  }
+
+  function metadataFor(root, shell = root) {
+    const label = [...root.querySelectorAll('span,small,div,em,b')].find(isLabel);
+    if (!label) return null;
+    const anchor = titleLink(root, label);
+    if (!anchor) return null;
+    const url = safeURL(anchor);
+    const title = cleanText(anchor.textContent);
+    if (!url || title.length < 5 || title.length > 220) return null;
+    return { root: shell, anchor, title, domain: advertiserDomain(shell, url), url };
+  }
+
+  function findAds() {
+    const scope = document.querySelector('main,[role="main"]') || document.body;
+    if (!scope) return [];
+    const found = new Map();
+
+    for (const label of scope.querySelectorAll('span,small,div,em,b')) {
+      if (!isLabel(label)) continue;
+      const root = findCard(label);
+      if (!root || found.has(root)) continue;
+      const shell = findExclusiveShell(root);
+      const meta = metadataFor(root, shell);
+      if (meta) found.set(shell, meta);
+    }
+
+    // Support Qwant variants with a dedicated ad result container.
+    // A genuine Ad label is still required to avoid touching organic results.
+    for (const selector of ['[data-testid="adResult"]', '.search-result-item--ad', 'article.result']) {
+      for (const candidate of scope.querySelectorAll(selector)) {
+        if (found.has(candidate) || countLabels(candidate) !== 1) continue;
+        const shell = findExclusiveShell(candidate);
+        const meta = metadataFor(candidate, shell);
+        if (meta) found.set(shell, meta);
+      }
+    }
+
+    const sorted = [...found.values()].sort((a, b) => {
+      if (a.root === b.root) return 0;
+      return a.root.compareDocumentPosition(b.root) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+    });
+    // Never replace overlapping ancestors/descendants.
+    return sorted.filter((item, i) => !sorted.some((other, j) =>
+      i !== j && other.root.contains(item.root)));
+  }
+
+  function commonAncestor(a, b) {
+    const visited = new Set();
+    for (let node = a; node; node = node.parentElement) visited.add(node);
+    for (let node = b; node; node = node.parentElement) {
+      if (visited.has(node)) return node;
+    }
+    return document.body;
+  }
+
+  function organicBetween(before, after) {
+    // The ad cards in Qwant are often *not siblings*. Instead of requiring
+    // adjacency in the DOM, look for a real organic title between them.
+    if (!before || !after || !before.isConnected || !after.isConnected) return true;
+    let range;
+    try {
+      range = document.createRange();
+      range.setStartAfter(before);
+      range.setEndBefore(after);
+    } catch { return true; }
+    const ancestor = commonAncestor(before, after);
+    const candidates = ancestor.querySelectorAll('h2,h3,[role="heading"],a[href]');
+    let visited = 0;
+    for (const el of candidates) {
+      if (++visited > 500) return true; // Fail closed: don't merge unclear runs.
+      if (!range.intersectsNode(el) || isOwn(el)) continue;
+      if (el.closest('nav,header,footer,aside')) continue;
+      if (el.matches('h2,h3,[role="heading"]')) {
+        const link = el.closest('a[href]') || el.querySelector('a[href]');
+        if (link && safeURL(link) && cleanText(link.textContent).length >= 12) return true;
+      } else {
+        const text = cleanText(el.textContent);
+        const size = parseFloat(getComputedStyle(el).fontSize) || 0;
+        if (size >= 16 && text.length >= 13 && text.length <= 220 && safeURL(el)) return true;
+      }
+    }
+    return false;
