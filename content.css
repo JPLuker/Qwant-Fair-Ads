@@ -28,7 +28,7 @@
   align-items: center !important;
   justify-content: space-between !important;
   cursor: pointer !important;
-  font: 600 12px/1.45 system-ui, sans-serif !important;
+  font: 600 13px/1.45 system-ui, sans-serif !important;
   padding: 6px 2px 6px 0 !important;
   margin: 0 !important;
   border-bottom: 1px solid var(--qcr-line) !important;
@@ -42,7 +42,7 @@
 }
 .qcr-group .qcr-toggle-text { display: inline-flex !important; align-items: center !important; gap: 6px !important; }
 .qcr-group .qcr-count { font-weight: 400 !important; opacity: .8 !important; }
-.qcr-group .qcr-chevron { font-size: 11px !important; color: inherit !important; }
+.qcr-group .qcr-chevron { font-size: 12px !important; color: inherit !important; }
 .qcr-group .qcr-list { margin: 0 !important; padding: 3px 0 0 !important; display: block !important; }
 .qcr-group .qcr-list[hidden] { display: none !important; }
 .qcr-group .qcr-ad {
@@ -62,7 +62,7 @@
 .qcr-group .qcr-domain {
   display: block !important;
   width: auto !important;
-  font: 11px/14px system-ui, sans-serif !important;
+  font: 12px/16px system-ui, sans-serif !important;
   color: var(--qcr-muted) !important;
   overflow: hidden !important;
   white-space: nowrap !important;
@@ -85,7 +85,7 @@
   white-space: nowrap !important;
   cursor: pointer !important;
   text-decoration: none !important;
-  font: 500 12px/16px system-ui, sans-serif !important;
+  font: 500 13px/17px system-ui, sans-serif !important;
 }
 .qcr-group .qcr-ad-link:visited, .qcr-group .qcr-ad-link:hover {
   color: var(--qcr-red) !important;
